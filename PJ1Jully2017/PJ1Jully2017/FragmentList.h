@@ -4,16 +4,16 @@
 template <typename T>
 class FragmentList
 {
-	static_assert(std::is_arithmetic<T>::value, "Template parameter is not an arithmetic type!");
+	static_assert(std::is_arithmetic<T>::value, "Template parameter is not an arithmetic type!"); //onemogucava kompajliranje ako tip T nije aritmeticki
 protected:
-	T ** collection;
-	int number_of_elements;
-	int number_of_fragments;
-	int *fragment_capacity;
-	int max_number_of_elements;
+	T ** kolekcija;
+	int broj_elemenata;
+	int broj_fragmenata;
+	int *kapacitet_fragmenata;
+	int max_broj_elemenata;
 
 	//methods
-	std::tuple<int, int> findElementIndex(int) const noexcept; //noexcept because we already checked if the index is out of range
+	std::tuple<int, int> nadjiIndexElementa(int) const noexcept; //noexcept because we already checked if the index is out of range
 	virtual void destroy() noexcept;
 	virtual void copy(const FragmentList<T>&);
 	virtual void move(FragmentList<T>&&) noexcept;
@@ -26,40 +26,40 @@ public:
 	FragmentList<T>& operator=(const FragmentList<T>&);
 	FragmentList<T>& operator=(FragmentList<T>&&) noexcept;
 
-	void allocate(int n);
+	void allocate(int n); //dodaje tacno 1 fragment
 	virtual void addElement(const T) noexcept(false);
 
-	virtual constexpr std::tuple<int, int> no_of_elements_and_empty_elements() const noexcept final;
+	virtual constexpr std::tuple<int, int> broj_elemenataIPraznihElemenata() const noexcept final;
 
 	virtual T& operator[](int n) noexcept(false);
 };
 
 template <typename T>
-FragmentList<T>::FragmentList() noexcept : collection(nullptr), number_of_elements(0), number_of_fragments(0), fragment_capacity(nullptr) {};
+FragmentList<T>::FragmentList() noexcept : kolekcija(nullptr), broj_elemenata(0), broj_fragmenata(0), kapacitet_fragmenata(nullptr) {};
 
 template <typename T>
-void FragmentList<T>::allocate(int n)
+void FragmentList<T>::allocate(int n) 
 {
-	T ** tmp = new T*[number_of_fragments + 1];
-	int *capacity_tmp = new int[number_of_fragments + 1]; //increase in size
-	std::copy(collection, collection + number_of_fragments, tmp);
-	std::copy(fragment_capacity, fragment_capacity + number_of_fragments, capacity_tmp);
-	collection = tmp;
-	fragment_capacity = capacity_tmp;
-	collection[number_of_fragments] = new T[n]; // acutall allocation //index of the "first" element is actually zero
-	max_number_of_elements += n;
-	fragment_capacity[number_of_fragments] = n;
-	++number_of_fragments;
-	std::fill(tmp, tmp + number_of_fragments, nullptr);
-	std::fill(capacity_tmp, capacity_tmp + number_of_fragments, nullptr); //because of reasons, maybe redundant, avoid destruction of things that are pointed to
+	T ** tmp = new T*[broj_fragmenata + 1];
+	int *capacity_tmp = new int[broj_fragmenata + 1]; //increase in size
+	std::copy(kolekcija, kolekcija + broj_fragmenata, tmp);
+	std::copy(kapacitet_fragmenata, kapacitet_fragmenata + broj_fragmenata, capacity_tmp);
+	kolekcija = tmp;
+	kapacitet_fragmenata = capacity_tmp;
+	kolekcija[broj_fragmenata] = new T[n]; //zbog toga sto index ide od 0 // acutall allocation //index of the "first" element is actually zero
+	max_broj_elemenata += n;
+	kapacitet_fragmenata[broj_fragmenata] = n;
+	++broj_fragmenata;
+	std::fill(tmp, tmp + broj_fragmenata, nullptr);
+	std::fill(capacity_tmp, capacity_tmp + broj_fragmenata, nullptr); //because of reasons, maybe redundant, avoid destruction of things that are pointed to
 }
 
 template<typename T>
-std::tuple<int, int> FragmentList<T>::findElementIndex(int n) const noexcept
+std::tuple<int, int> FragmentList<T>::nadjiIndexElementa(int n) const noexcept
 {
-	int i = n;
+	int i = n; //brojac
 	int fragment = 0;
-	std::for_each(fragment_capacity, fragment_capacity + number_of_fragments,
+	std::for_each(kapacitet_fragmenata, kapacitet_fragmenata + broj_fragmenata,
 		[&i](int number)
 	{
 		if (i > number)
@@ -74,33 +74,33 @@ std::tuple<int, int> FragmentList<T>::findElementIndex(int n) const noexcept
 template<typename T>
 void FragmentList<T>::addElement(const T new_element) noexcept(false)
 {
-	if (number_of_elements == max_number_of_elements)
+	if (broj_elemenata == max_broj_elemenata)
 		throw (new std::exception("The list is full. The club is packed, sorry. "));
 	else
 	{
-		std::tuple<int, int> tmp = findElementIndex(number_of_elements);
+		std::tuple<int, int> tmp = nadjiIndexElementa(broj_elemenata);
 		int fragment = tmp[0];
 		int index = tmp[1];
-		collection[fragment][index] = new_element;
+		kolekcija[fragment][index] = new_element;
 	}
 }
 
 template<typename T>
 T& FragmentList<T>::operator[](int n) noexcept(false)
 {
-	if (n<0 || n>number_of_elements)
+	if (n<0 || n>broj_elemenata)
 		throw(new std::exception("Index out of range"));
 	else
 	{
-		std::tuple<int, int> tmp = findElementIndex(n);
-		return collection[tmp[0]][tmp[1]];
+		std::tuple<int, int> tmp = nadjiIndexElementa(n);
+		return kolekcija[tmp[0]][tmp[1]];
 	}
 }
 
 template <typename T>
-constexpr std::tuple<int, int> FragmentList<T>::no_of_elements_and_empty_elements() const noexcept
+constexpr std::tuple<int, int> FragmentList<T>::broj_elemenataIPraznihElemenata() const noexcept
 {
-	return std::make_tuple<int, int>(number_of_elements, max_number_of_elements - number_of_elements);
+	return std::make_tuple<int, int>(broj_elemenata, max_broj_elemenata - broj_elemenata);
 }
 
 template <typename T>
@@ -112,37 +112,37 @@ FragmentList<T>::~FragmentList()
 template <typename T>
 void FragmentList<T>::destroy() noexcept
 {
-	delete[] fragment_capacity;
-	std::for_each(collection, collection + number_of_fragments, [](T*& arr_ptr) {delete[] arr_ptr; });
-	delete[] collection;
+	delete[] kapacitet_fragmenata;
+	std::for_each(kolekcija, kolekcija + broj_fragmenata, [](T*& arr_ptr) {delete[] arr_ptr; }); //umjesto T*& arr_ptr moze auto& arr_ptr
+	delete[] kolekcija;
 }
 
 template <typename T>
 void FragmentList<T>::copy(const FragmentList<T>& other)
 {
-	number_of_elements = other.number_of_elements;
-	number_of_fragments = other.number_of_fragments;
-	fragment_capacity = new int[number_of_fragments];
-	std::copy(other.fragment_capacity, other.fragment_capacity + number_of_fragments, fragment_capacity);
-	collection = new T**[number_of_fragments];
+	broj_elemenata = other.broj_elemenata;
+	broj_fragmenata = other.broj_fragmenata;
+	kapacitet_fragmenata = new int[broj_fragmenata];
+	std::copy(other.kapacitet_fragmenata, other.kapacitet_fragmenata + broj_fragmenata, kapacitet_fragmenata);
+	kolekcija = new T**[broj_fragmenata];
 	int index = 0;
-	std::for_each(collection, collection + number_of_fragments, [](T*& arr_ptr)
+	std::for_each(kolekcija, kolekcija + broj_fragmenata, [](T*& arr_ptr)
 	{
-		arr_ptr = new T[fragment_capacity[index]];
-		std::copy(other.collection[index], other.collection[index] + fragment_capacity[index++], arr_ptr);
+		arr_ptr = new T[kapacitet_fragmenata[index]];
+		std::copy(other.kolekcija[index], other.kolekcija[index] + kapacitet_fragmenata[index++], arr_ptr);
 	});
 }
 
 template <typename T>
 void FragmentList<T>::move(FragmentList<T>&& other) noexcept
 {
-	fragment_capacity = other.fragment_capacity;
-	collection = other.collection;
-	number_of_elements = other.number_of_elements;
-	number_of_fragments = other.number_of_fragments;
-	max_number_of_elements = other.max_number_of_elements;
-	other.fragment_capacity = nullptr;
-	other.collection = nullptr;
+	kapacitet_fragmenata = other.kapacitet_fragmenata;
+	kolekcija = other.kolekcija;
+	broj_elemenata = other.broj_elemenata;
+	broj_fragmenata = other.broj_fragmenata;
+	max_broj_elemenata = other.max_broj_elemenata;
+	other.kapacitet_fragmenata = nullptr;
+	other.kolekcija = nullptr;
 }
 
 template <typename T>
@@ -160,7 +160,7 @@ FragmentList<T>::FragmentList(FragmentList&& other) noexcept
 template <typename T>
 FragmentList<T>& FragmentList<T>::operator=(FragmentList&& other) noexcept
 {
-	destroy();
+	destroy(); //da ne bude memory leak, curenje memorije
 	move(std::move(other));
 	return *this;
 }
@@ -168,7 +168,7 @@ FragmentList<T>& FragmentList<T>::operator=(FragmentList&& other) noexcept
 template <typename T>
 FragmentList<T>& FragmentList<T>::operator=(const FragmentList& other)
 {
-	if (this != &other)
+	if (this != &other) //provjera da se objekat ne dodjeljuje sam sebi
 	{
 		destroy();
 		copy(other);
