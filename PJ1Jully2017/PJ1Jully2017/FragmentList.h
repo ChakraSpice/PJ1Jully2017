@@ -29,7 +29,7 @@ public:
 	void allocate(int n);
 	virtual void addElement(const T) noexcept(false);
 
-	virtual constexpr std::tuple<int, int> no_of_elements_and_empty_elements() const noexcept final;
+	virtual constexpr std::tuple<int, int> no_of_elements_and_empty_elements() noexcept final;
 
 	virtual T& operator[](int n) noexcept(false);
 };
@@ -60,7 +60,7 @@ std::tuple<int, int> FragmentList<T>::findElementIndex(int n) const noexcept
 	int i = n;
 	int fragment = 0;
 	std::for_each(fragment_capacity, fragment_capacity + number_of_fragments,
-		[&i](int number)
+		[&i, &fragment](int number)
 	{
 		if (i > number)
 		{
@@ -68,7 +68,7 @@ std::tuple<int, int> FragmentList<T>::findElementIndex(int n) const noexcept
 			++fragment;
 		}
 	});
-	return std::make_tuple<int, int>(fragment, i);
+	return std::make_tuple<int, int>(std::move(fragment), std::move(i));
 }
 
 template<typename T>
@@ -79,8 +79,8 @@ void FragmentList<T>::addElement(const T new_element) noexcept(false)
 	else
 	{
 		std::tuple<int, int> tmp = findElementIndex(number_of_elements);
-		int fragment = tmp[0];
-		int index = tmp[1];
+		int fragment = std::get<0>(tmp);
+		int index = std::get<1>(tmp);
 		collection[fragment][index] = new_element;
 	}
 }
@@ -93,14 +93,14 @@ T& FragmentList<T>::operator[](int n) noexcept(false)
 	else
 	{
 		std::tuple<int, int> tmp = findElementIndex(n);
-		return collection[tmp[0]][tmp[1]];
+		return collection[std::get<0>(tmp)][std::get<1>(tmp)];
 	}
 }
 
 template <typename T>
-constexpr std::tuple<int, int> FragmentList<T>::no_of_elements_and_empty_elements() const noexcept
+constexpr std::tuple<int, int> FragmentList<T>::no_of_elements_and_empty_elements() noexcept
 {
-	return std::make_tuple<int, int>(number_of_elements, max_number_of_elements - number_of_elements);
+	return std::make_tuple<int, int>(std::move(number_of_elements), max_number_of_elements - number_of_elements);
 }
 
 template <typename T>
@@ -124,9 +124,9 @@ void FragmentList<T>::copy(const FragmentList<T>& other)
 	number_of_fragments = other.number_of_fragments;
 	fragment_capacity = new int[number_of_fragments];
 	std::copy(other.fragment_capacity, other.fragment_capacity + number_of_fragments, fragment_capacity);
-	collection = new T**[number_of_fragments];
+	collection = new T*[number_of_fragments];
 	int index = 0;
-	std::for_each(collection, collection + number_of_fragments, [](T*& arr_ptr)
+	std::for_each(collection, collection + number_of_fragments, [&index, &other,this](T*& arr_ptr)
 	{
 		arr_ptr = new T[fragment_capacity[index]];
 		std::copy(other.collection[index], other.collection[index] + fragment_capacity[index++], arr_ptr);
